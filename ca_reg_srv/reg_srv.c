@@ -41,10 +41,17 @@ int REG_Service( JThreadInfo *pThInfo )
 
     JS_HTTP_getMethodPath( pMethInfo, &nType, &pPath );
 
-    ret = procReg( db, pReq, nType, pPath, &pRsp );
-    if( ret != 0 )
+    if( strcasecmp( pPath, "PING" ) == 0 )
     {
-        goto end;
+
+    }
+    else
+    {
+        ret = procReg( db, pReq, nType, pPath, &pRsp );
+        if( ret != 0 )
+        {
+            goto end;
+        }
     }
 
     JS_UTIL_createNameValList2("accept", "application/json", &pRspHeaderList);

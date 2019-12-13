@@ -61,6 +61,17 @@ end :
 
     return ret;
 }
+
+int revokeCert( sqlite3 *db, const char *pReq, char **ppRsp )
+{
+    return 0;
+}
+
+int getCertStatus( sqlite3 *db, const char *pReq, char **ppRsp )
+{
+    return 0;
+}
+
 int procReg( sqlite3 *db, const char *pReq, int nType, const char *pPath, char **ppRsp )
 {
     int ret = 0;
@@ -69,6 +80,13 @@ int procReg( sqlite3 *db, const char *pReq, int nType, const char *pPath, char *
     {
         if( strcasecmp( pPath, "/user" ) == 0 )
             ret = regUser( db, pReq, ppRsp );
+        else if( strcasecmp( pPath, "/revoke" ) == 0 )
+            ret = revokeCert( db, pReq, ppRsp );
+    }
+    else if( nType == JS_HTTP_METHOD_GET )
+    {
+        if( strcasecmp( pPath, "/certstatus" ) == 0 )
+            ret = getCertStatus( db, pReq, ppRsp );
     }
 
     return ret;
