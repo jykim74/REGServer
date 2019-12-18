@@ -40,7 +40,6 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
                    sRegUserReq.pName,
                    sRegUserReq.pSSN,
                    sRegUserReq.pEmail,
-                   -1,
                    0,
                    sRefCode,
                    pRand );
@@ -62,32 +61,132 @@ end :
     return ret;
 }
 
-int revokeCert( sqlite3 *db, const char *pReq, char **ppRsp )
+int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
 {
-    return 0;
+    int     ret = 0;
+    JRegCertRevokeReq   sRevokeReq;
+    JRegCertRevokeRsp   sRevokeRsp;
+    JDB_Cert            sDBCert;
+    JDB_Revoked         sDBRevoked;
+    int     nReason = -1;
+
+    memset( &sRevokeReq, 0x00, sizeof(sRevokeReq));
+    memset( &sRevokeRsp, 0x00, sizeof(sRevokeRsp));
+    memset( &sDBCert, 0x00, sizeof(sDBCert));
+    memset( &sDBRevoked, 0x00, sizeof(sDBRevoked));
+
+    JS_JSON_decodeRegCertRevokeReq( pReq, &sRevokeReq );
+
+    if( strcasecmp( sRevokeReq.pTarget, "name" ) == 0 )
+    {
+        JDB_User    sDBUser;
+        memset( &sDBUser, 0x00, sizeof(sDBUser));
+
+        ret = JS_DB_getUserByName( db, sRevokeReq.pValue, &sDBUser );
+
+        ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
+
+        JS_DB_resetUser( &sDBUser );
+    }
+    else if( strcasecmp( sRevokeReq.pTarget, "serial" ) == 0 )
+    {
+        ret = JS_DB_getCertBySerial( db, sRevokeReq.pValue, &sDBCert );
+    }
+    else
+    {
+        ret = -1;
+        goto end;
+    }
+
+    nReason = atoi( sRevokeReq.pReason );
+    JS_DB_setRevoked( &sDBRevoked, -1, sDBCert.nIssuerNum, sDBCert.nNum, sDBCert.pSerial, time(NULL), nReason );
+    JS_DB_addRevoked( db, &sDBRevoked );
+    JS_DB_changeCertStatus( db, sDBCert.nNum, 2 );
+
+    JS_JSON_setRegRsp( &sRevokeRsp, "0000", "OK" );
+    JS_JSON_encodeRegRsp( &sRevokeRsp, ppRsp );
+
+    ret = 0;
+
+end :
+    JS_JSON_resetRegCertRevokeReq( &sRevokeReq );
+    JS_JSON_resetRegRsp( &sRevokeRsp );
+    JS_DB_resetCert( &sDBCert );
+    JS_DB_resetRevoked( &sDBRevoked );
+
+    return ret;
 }
 
-int getCertStatus( sqlite3 *db, const char *pReq, char **ppRsp )
+int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
 {
-    return 0;
+    int     ret = 0;
+    JRegCertStatusReq       sStatusReq;
+    JRegCertStatusRsp       sStatusRsp;
+    JDB_Cert                sDBCert;
+    JDB_Revoked             sDBRevoked;
+
+    memset( &sStatusReq, 0x00, sizeof(sStatusReq));
+    memset( &sStatusRsp, 0x00, sizeof(sStatusRsp));
+    memset( &sDBCert, 0x00, sizeof(sDBCert));
+    memset( &sDBRevoked, 0x00, sizeof(sDBRevoked));
+
+    JS_JSON_decodeRegCertStatusReq( pReq, &sStatusReq );
+
+    if( strcasecmp( sStatusReq.pTarget, "name" ) == 0 )
+    {
+        JDB_User    sDBUser;
+        memset( &sDBUser, 0x00, sizeof(sDBUser));
+
+        ret = JS_DB_getUserByName( db, sStatusReq.pValue, &sDBUser );
+
+        ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
+
+        JS_DB_resetUser( &sDBUser );
+    }
+    else if( strcasecmp( sStatusReq.pTarget, "serial" ) == 0 )
+    {
+         ret = JS_DB_getCertBySerial( db, sStatusReq.pValue, &sDBCert );
+    }
+
+    if( sDBCert.nStatus == 0 )
+    {
+        JS_JSON_setRegCertStatusRsp( &sStatusRsp, "0000", "OK", "Valid", NULL, NULL, sDBCert.pSerial );
+    }
+    else
+    {
+        JS_DB_getRevokedByCertNum( db, sDBCert.nNum, &sDBRevoked );
+        char sReason[128];
+        char sRevokeDate[128];
+
+        sprintf( sReason, "%d", sDBRevoked.nReason );
+        sprintf( sRevokeDate, "%d", sDBRevoked.nRevokedDate );
+
+        JS_JSON_setRegCertStatusRsp( &sStatusRsp, "0000", "OK", "Revoked", sReason, sRevokeDate, sDBCert.pSerial );
+    }
+
+    JS_JSON_encodeRegCertStatusRsp( &sStatusRsp, ppRsp );
+    ret = 0;
+
+end :
+    JS_JSON_resetRegCertStatusReq( &sStatusReq );
+    JS_JSON_resetRegCertStatusRsp( &sStatusRsp );
+    JS_DB_resetCert( &sDBCert );
+    JS_DB_resetRevoked( &sDBRevoked );
+
+    return ret;
 }
 
 int procReg( sqlite3 *db, const char *pReq, int nType, const char *pPath, char **ppRsp )
 {
     int ret = 0;
 
-    if( nType == JS_HTTP_METHOD_POST )
-    {
-        if( strcasecmp( pPath, "/user" ) == 0 )
-            ret = regUser( db, pReq, ppRsp );
-        else if( strcasecmp( pPath, "/revoke" ) == 0 )
-            ret = revokeCert( db, pReq, ppRsp );
-    }
-    else if( nType == JS_HTTP_METHOD_GET )
-    {
-        if( strcasecmp( pPath, "/certstatus" ) == 0 )
-            ret = getCertStatus( db, pReq, ppRsp );
-    }
+    if( strcasecmp( pPath, "/user" ) == 0 )
+        ret = regUser( db, pReq, ppRsp );
+    else if( strcasecmp( pPath, "/certrevoke" ) == 0 )
+        ret = certRevoke( db, pReq, ppRsp );
+    else if( strcasecmp( pPath, "/certstatus" ) == 0 )
+        ret = certStatus( db, pReq, ppRsp );
+
 
     return ret;
 }
