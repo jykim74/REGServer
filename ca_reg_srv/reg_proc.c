@@ -99,7 +99,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
     }
 
     nReason = atoi( sRevokeReq.pReason );
-    JS_DB_setRevoked( &sDBRevoked, -1, sDBCert.nIssuerNum, sDBCert.nNum, sDBCert.pSerial, time(NULL), nReason );
+    JS_DB_setRevoked( &sDBRevoked, -1, sDBCert.nIssuerNum, sDBCert.nNum, sDBCert.pSerial, time(NULL), nReason, sDBCert.pCRLDP );
     JS_DB_addRevoked( db, &sDBRevoked );
     JS_DB_changeCertStatus( db, sDBCert.nNum, 2 );
 

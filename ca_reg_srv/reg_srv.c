@@ -57,8 +57,9 @@ int REG_Service( JThreadInfo *pThInfo )
 
     JS_UTIL_createNameValList2("accept", "application/json", &pRspHeaderList);
     JS_UTIL_appendNameValList2( pRspHeaderList, "content-type", "application/json");
+    const char *pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
 
-    ret = JS_HTTP_send( pThInfo->nSockFd, JS_HTTP_OK, pRspHeaderList, pRsp );
+    ret = JS_HTTP_send( pThInfo->nSockFd, pRspMethod, pRspHeaderList, pRsp );
     if( ret != 0 )
     {
         fprintf( stderr, "fail to send message(%d)\n", ret );
