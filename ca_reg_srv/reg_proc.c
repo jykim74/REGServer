@@ -15,6 +15,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     BIN             binRand = {0,0};
     char            *pRand = NULL;
     char            sRefCode[64];
+    time_t          now_t = time(NULL);
 
     memset( &sRegUserReq, 0x00, sizeof(sRegUserReq));
     memset( &sRegUserRsp, 0x00, sizeof(sRegUserRsp));
@@ -37,6 +38,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
 
     ret = JS_DB_setUser( &sDBUser,
                    -1,
+                   now_t,
                    sRegUserReq.pName,
                    sRegUserReq.pSSN,
                    sRegUserReq.pEmail,
