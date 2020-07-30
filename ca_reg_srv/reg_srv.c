@@ -9,7 +9,7 @@
 
 #include "reg_srv.h"
 
-const char* g_dbPath = "/Users/jykim/work/CAMan/ca.db";
+const char* g_dbPath = "D:/data/ca.db";
 
 int REG_Service( JThreadInfo *pThInfo )
 {
