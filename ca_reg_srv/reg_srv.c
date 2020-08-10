@@ -40,6 +40,8 @@ int REG_Service( JThreadInfo *pThInfo )
     JNameValList   *pRspHeaderList = NULL;
     JNameValList    *pParamList = NULL;
 
+    const char *pRspMethod = NULL;
+
     sqlite3* db = JS_DB_open( g_dbPath );
     if( db == NULL )
     {
@@ -57,9 +59,9 @@ int REG_Service( JThreadInfo *pThInfo )
 
     JS_HTTP_getMethodPath( pMethInfo, &nType, &pPath, &pParamList );
 
-    if( strcasecmp( pPath, "PING" ) == 0 )
+    if( strcasecmp( pPath, "/PING" ) == 0 )
     {
-
+        pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
     }
     else
     {
@@ -68,11 +70,12 @@ int REG_Service( JThreadInfo *pThInfo )
         {
             goto end;
         }
+
+        pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
     }
 
     JS_UTIL_createNameValList2("accept", "application/json", &pRspHeaderList);
     JS_UTIL_appendNameValList2( pRspHeaderList, "content-type", "application/json");
-    const char *pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
 
     ret = JS_HTTP_send( pThInfo->nSockFd, pRspMethod, pRspHeaderList, pRsp );
     if( ret != 0 )
