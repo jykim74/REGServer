@@ -68,6 +68,7 @@ int REG_Service( JThreadInfo *pThInfo )
         ret = procReg( db, pReq, nType, pPath, &pRsp );
         if( ret != 0 )
         {
+            pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_INTERNAL_SERVER_ERROR );
             goto end;
         }
 
