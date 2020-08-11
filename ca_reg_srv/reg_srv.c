@@ -15,6 +15,8 @@ const char* g_dbPath = NULL;
 static char g_sConfigPath[1024];
 static char g_sBuildInfo[1024];
 
+SSL_CTX     *g_pSSLCTX = NULL;
+
 int g_nVerbose = 0;
 JEnvList    *g_pEnvList = NULL;
 
@@ -102,6 +104,85 @@ end:
 
 int REG_SSL_Service( JThreadInfo *pThInfo )
 {
+    int ret = 0;
+    int nType = -1;
+    char *pPath = NULL;
+
+    char    *pReq = NULL;
+    char    *pRsp = NULL;
+
+    char    *pMethInfo = NULL;
+    JNameValList   *pHeaderList = NULL;
+    JNameValList   *pRspHeaderList = NULL;
+    JNameValList    *pParamList = NULL;
+
+    SSL *pSSL = NULL;
+
+    const char *pRspMethod = NULL;
+
+    sqlite3* db = JS_DB_open( g_dbPath );
+    if( db == NULL )
+    {
+        fprintf( stderr, "fail to open db file(%s)\n", g_dbPath );
+        ret = -1;
+        goto end;
+    }
+
+    ret = JS_SSL_accept( g_pSSLCTX, pThInfo->nSockFd, &pSSL );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to accept SSL(%d)\n", ret );
+        goto end;
+    }
+
+    ret = JS_HTTPS_recv( pSSL, &pMethInfo, &pHeaderList, &pReq );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to receive message(%d)\n", ret );
+        goto end;
+    }
+
+    JS_HTTP_getMethodPath( pMethInfo, &nType, &pPath, &pParamList );
+
+    if( strcasecmp( pPath, "/PING" ) == 0 )
+    {
+        pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
+    }
+    else
+    {
+        ret = procReg( db, pReq, nType, pPath, &pRsp );
+        if( ret != 0 )
+        {
+            pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_INTERNAL_SERVER_ERROR );
+            goto end;
+        }
+
+        pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_OK );
+    }
+
+    JS_UTIL_createNameValList2("accept", "application/json", &pRspHeaderList);
+    JS_UTIL_appendNameValList2( pRspHeaderList, "content-type", "application/json");
+
+    ret = JS_HTTPS_send( pSSL, pRspMethod, pRspHeaderList, pRsp );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to send message(%d)\n", ret );
+        goto end;
+    }
+    /* send response body */
+end:
+    if( pReq ) JS_free( pReq );
+    if( pRsp ) JS_free( pRsp );
+
+    if( pPath ) JS_free( pPath );
+
+    if( pHeaderList ) JS_UTIL_resetNameValList( &pHeaderList );
+    if( pRspHeaderList ) JS_UTIL_resetNameValList( &pRspHeaderList );
+    if( pParamList ) JS_UTIL_resetNameValList( &pParamList );
+
+    if( pSSL ) JS_SSL_clear( pSSL );
+    if( db ) JS_DB_close( db );
+
     return 0;
 }
 
@@ -117,6 +198,57 @@ int initServer()
         exit(0);
     }
 
+    value = JS_CFG_getValue( g_pEnvList, "SSL_CA_CERT_PATH" );
+    if( value == NULL )
+    {
+        fprintf( stderr, "You have to set 'SSL_CA_CERT_PATH'\n" );
+        exit(0);
+    }
+
+    BIN binSSLCA = {0,0};
+    BIN binSSLCert = {0,0};
+    BIN binSSLPri = {0,0};
+
+    ret = JS_BIN_fileRead( value, &binSSLCA );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to read ssl ca cert(%s)\n", value );
+        exit(0);
+    }
+
+    value = JS_CFG_getValue( g_pEnvList, "SSL_CERT_PATH" );
+    if( value == NULL )
+    {
+        fprintf( stderr, "You have to set 'SSL_CERT_PATH'\n" );
+        exit(0);
+    }
+
+    ret = JS_BIN_fileRead( value, &binSSLCert );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to read ssl cert(%s)\n", value );
+        exit(0);
+    }
+
+    value = JS_CFG_getValue( g_pEnvList, "SSL_PRIKEY_PATH" );
+    if( value == NULL )
+    {
+        fprintf( stderr, "You have to set 'SSL_PRIKEY_PATH'\n" );
+        exit(0);
+    }
+
+    ret = JS_BIN_fileRead( value, &binSSLPri );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to read ssl private key(%s)\n", value );
+        exit(0);
+    }
+
+    JS_SSL_initServer( &g_pSSLCTX );
+    JS_SSL_setCertAndPriKey( g_pSSLCTX, &binSSLPri, &binSSLCert );
+    JS_SSL_setClientCACert( g_pSSLCTX, &binSSLCA );
+
+
     value = JS_CFG_getValue( g_pEnvList, "DB_PATH" );
     if( value == NULL )
     {
@@ -127,6 +259,10 @@ int initServer()
     g_dbPath = JS_strdup( value );
 
     printf( "CA RegServer Init OK\n" );
+
+    JS_BIN_reset( &binSSLCA );
+    JS_BIN_reset( &binSSLCert );
+    JS_BIN_reset( &binSSLPri );
 
     return 0;
 }
