@@ -40,3 +40,6 @@ win32 {
     INCLUDEPATH += "C:\msys64\mingw32\include"
     LIBS += -L"C:\msys64\mingw32\lib" -lltdl -lsqlite3
 }
+
+DISTFILES += \
+    ../ca_reg_srv.cfg
