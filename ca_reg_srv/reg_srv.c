@@ -16,6 +16,8 @@ static char g_sConfigPath[1024];
 static char g_sBuildInfo[1024];
 
 SSL_CTX     *g_pSSLCTX = NULL;
+int     g_nPort = 9030;
+int     g_nSSLPort = 9130;
 
 int g_nVerbose = 0;
 JEnvList    *g_pEnvList = NULL;
@@ -258,7 +260,13 @@ int initServer()
 
     g_dbPath = JS_strdup( value );
 
-    printf( "CA RegServer Init OK\n" );
+    value = JS_CFG_getValue( g_pEnvList, "REG_PORT" );
+    if( value ) g_nPort = atoi( value );
+
+    value = JS_CFG_getValue( g_pEnvList, "REG_SSL_PORT" );
+    if( value ) g_nSSLPort = atoi( value );
+
+    printf( "CA RegServer Init OK [Port:%d SSL:%d]\n", g_nPort, g_nSSLPort );
 
     JS_BIN_reset( &binSSLCA );
     JS_BIN_reset( &binSSLCert );
@@ -302,8 +310,8 @@ int main( int argc, char *argv[] )
     initServer();
 
     JS_THD_logInit( "./log", "reg", 2 );
-    JS_THD_registerService( "JS_REG", NULL, 9030, 4, NULL, REG_Service );
-    JS_THD_registerService( "JS_REG_SSL", NULL, 9130, 4, NULL, REG_SSL_Service );
+    JS_THD_registerService( "JS_REG", NULL, g_nPort, 4, NULL, REG_Service );
+    JS_THD_registerService( "JS_REG_SSL", NULL, g_nSSLPort, 4, NULL, REG_SSL_Service );
     JS_THD_serviceStartAll();
 
     return 0;
