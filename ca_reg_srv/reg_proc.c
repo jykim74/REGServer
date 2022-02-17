@@ -35,6 +35,12 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     ret = JS_BIN_encodeHex( &binRand, &pRand );
 
     ret = JS_JSON_decodeRegUserReq( pReq, &sRegUserReq );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to decode request[%d]\n", ret );
+        ret = -1;
+        goto end;
+    }
 
     ret = JS_DB_setUser( &sDBUser,
                    -1,
@@ -42,11 +48,17 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
                    sRegUserReq.pName,
                    sRegUserReq.pSSN,
                    sRegUserReq.pEmail,
-                   0,
+                   1,
                    sRefCode,
                    pRand );
 
     ret = JS_DB_addUser( db, &sDBUser );
+    if( ret != 0 )
+    {
+        fprintf( stderr, "fail to add user record:%d\n", ret );
+        ret = -1;
+        goto end;
+    }
 
     JS_JSON_setRegUserRsp( &sRegUserRsp, "0000", "OK", sRefCode, pRand );
     JS_JSON_encodeRegUserRsp( &sRegUserRsp, ppRsp );
@@ -85,14 +97,32 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         memset( &sDBUser, 0x00, sizeof(sDBUser));
 
         ret = JS_DB_getUserByName( db, sRevokeReq.pValue, &sDBUser );
+        if( ret < 1 )
+        {
+            fprintf( stderr, "There is no user[%s]\n", sRevokeReq.pValue );
+            ret = -1;
+            goto end;
+        }
 
         ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
+        if( ret < 1 )
+        {
+            fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
+            ret = -1;
+            goto end;
+        }
 
         JS_DB_resetUser( &sDBUser );
     }
     else if( strcasecmp( sRevokeReq.pTarget, "serial" ) == 0 )
     {
         ret = JS_DB_getCertBySerial( db, sRevokeReq.pValue, &sDBCert );
+        if( ret < 1 )
+        {
+            fprintf( stderr, "There is no cert[%s]\n", sRevokeReq.pValue );
+            ret = -1;
+            goto end;
+        }
     }
     else
     {
@@ -140,14 +170,32 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         memset( &sDBUser, 0x00, sizeof(sDBUser));
 
         ret = JS_DB_getUserByName( db, sStatusReq.pValue, &sDBUser );
+        if( ret < 1 )
+        {
+            fprintf( stderr, "There is no user[%s]\n", sStatusReq.pValue );
+            ret = -1;
+            goto end;
+        }
 
         ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
+        if( ret < 1 )
+        {
+            fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
+            ret = -1;
+            goto end;
+        }
 
         JS_DB_resetUser( &sDBUser );
     }
     else if( strcasecmp( sStatusReq.pTarget, "serial" ) == 0 )
     {
          ret = JS_DB_getCertBySerial( db, sStatusReq.pValue, &sDBCert );
+         if( ret < 1 )
+         {
+             fprintf( stderr, "There is no cert[%s]\n", sStatusReq.pValue );
+             ret = -1;
+             goto end;
+         }
     }
 
     if( sDBCert.nStatus == 0 )
