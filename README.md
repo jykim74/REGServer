@@ -1,1 +1,3 @@
-# ca_reg_srv
+# REGServer
+
+Register Server for CA.
