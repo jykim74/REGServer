@@ -23,7 +23,8 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
 
     if( pReq == NULL ) return -1;
 
-    nRefCode = JS_DB_getSeq( db, "TB_USER" );
+//    nRefCode = JS_DB_getSeq( db, "TB_USER" );
+    nRefCode = JS_DB_getLastVal( db, "TB_USER" );
     if( nRefCode < 0 )
     {
         ret = -1;
