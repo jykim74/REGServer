@@ -1,3 +1,5 @@
+#include "js_gen.h"
+#include "js_log.h"
 #include "js_bin.h"
 #include "reg_srv.h"
 #include "js_db.h"
@@ -57,6 +59,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     if( ret != 0 )
     {
         fprintf( stderr, "fail to add user record:%d\n", ret );
+        JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail to add user record:%d", ret  );
         ret = -1;
         goto end;
     }
@@ -64,6 +67,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     JS_JSON_setRegUserRsp( &sRegUserRsp, "0000", "OK", sRefCode, pRand );
     JS_JSON_encodeRegUserRsp( &sRegUserRsp, ppRsp );
 
+    JS_addAudit( db, JS_GEN_KIND_REG_SRV, JS_GEN_OP_REG_USER, NULL );
 
 end :
 
@@ -101,6 +105,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         if( ret < 1 )
         {
             fprintf( stderr, "There is no user[%s]\n", sRevokeReq.pValue );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no user[%s]", sRevokeReq.pValue );
             ret = -1;
             goto end;
         }
@@ -109,6 +114,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         if( ret < 1 )
         {
             fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sDBUser.pName );
             ret = -1;
             goto end;
         }
@@ -121,6 +127,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         if( ret < 1 )
         {
             fprintf( stderr, "There is no cert[%s]\n", sRevokeReq.pValue );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sRevokeReq.pValue );
             ret = -1;
             goto end;
         }
@@ -138,6 +145,8 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
 
     JS_JSON_setRegRsp( &sRevokeRsp, "0000", "OK" );
     JS_JSON_encodeRegRsp( &sRevokeRsp, ppRsp );
+
+    JS_addAudit( db, JS_GEN_KIND_REG_SRV, JS_GEN_OP_REVOKE_CERT, NULL );
 
     ret = 0;
 
@@ -174,6 +183,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         if( ret < 1 )
         {
             fprintf( stderr, "There is no user[%s]\n", sStatusReq.pValue );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no user[%s]", sStatusReq.pValue );
             ret = -1;
             goto end;
         }
@@ -182,6 +192,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         if( ret < 1 )
         {
             fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sDBUser.pName );
             ret = -1;
             goto end;
         }
@@ -193,9 +204,10 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
          ret = JS_DB_getCertBySerial( db, sStatusReq.pValue, &sDBCert );
          if( ret < 1 )
          {
-             fprintf( stderr, "There is no cert[%s]\n", sStatusReq.pValue );
-             ret = -1;
-             goto end;
+            fprintf( stderr, "There is no cert[%s]\n", sStatusReq.pValue );
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sStatusReq.pValue );
+            ret = -1;
+            goto end;
          }
     }
 

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <getopt.h>
 
+#include "js_log.h"
 #include "js_pki.h"
 #include "js_http.h"
 #include "js_process.h"
@@ -18,6 +19,8 @@ static char g_sBuildInfo[1024];
 SSL_CTX     *g_pSSLCTX = NULL;
 int     g_nPort = 9030;
 int     g_nSSLPort = 9130;
+int     g_nLogLevel = JS_LOG_LEVEL_INFO;
+
 
 int g_nVerbose = 0;
 JEnvList    *g_pEnvList = NULL;
@@ -61,6 +64,9 @@ int REG_Service( JThreadInfo *pThInfo )
         goto end;
     }
 
+    JS_LOG_write( JS_LOG_LEVEL_VERBOSE, "RecvLen : %d", pReq ? strlen(pReq) : 0 );
+
+
     JS_HTTP_getMethodPath( pMethInfo, &nType, &pPath, &pParamList );
 
     if( strcasecmp( pPath, "/PING" ) == 0 )
@@ -72,6 +78,7 @@ int REG_Service( JThreadInfo *pThInfo )
         ret = procReg( db, pReq, nType, pPath, &pRsp );
         if( ret != 0 )
         {
+            JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail procReg(%d)", ret );
             pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_INTERNAL_SERVER_ERROR );
             goto end;
         }
@@ -86,6 +93,7 @@ int REG_Service( JThreadInfo *pThInfo )
     if( ret != 0 )
     {
         fprintf( stderr, "fail to send message(%d)\n", ret );
+        JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail to send message(%d)", ret );
         goto end;
     }
     /* send response body */
@@ -199,6 +207,17 @@ int initServer()
         fprintf( stderr, "fail to open config file(%s)\n", g_sConfigPath );
         exit(0);
     }
+
+    value = JS_CFG_getValue( g_pEnvList, "LOG_LEVEL" );
+    if( value ) g_nLogLevel = atoi( value );
+
+    JS_LOG_setLevel( g_nLogLevel );
+
+    value = JS_CFG_getValue( g_pEnvList, "LOG_PATH" );
+    if( value )
+        JS_LOG_open( value, "REG", JS_LOG_TYPE_DAILY );
+    else
+        JS_LOG_open( "log", "REG", JS_LOG_TYPE_DAILY );
 
     BIN binSSLCA = {0,0};
     BIN binSSLCert = {0,0};

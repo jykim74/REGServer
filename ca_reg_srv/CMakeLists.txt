@@ -14,6 +14,7 @@ add_executable(ca_reg_srv
 	reg_proc.c
 	reg_srv.h
 	reg_srv.c
+        ../ca_reg_srv.cfg
 	)
 
 if(WIN32)
