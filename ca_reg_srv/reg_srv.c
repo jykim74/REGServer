@@ -3,6 +3,7 @@
 #include <string.h>
 #include <getopt.h>
 
+#include "js_gen.h"
 #include "js_log.h"
 #include "js_pki.h"
 #include "js_http.h"
@@ -12,6 +13,7 @@
 
 #include "reg_srv.h"
 
+int     g_nConfigDB = 0;
 const char* g_dbPath = NULL;
 static char g_sConfigPath[1024];
 static char g_sBuildInfo[1024];
@@ -196,17 +198,10 @@ end:
     return 0;
 }
 
-int initServer()
+int initServer( sqlite3* db)
 {
     int ret = 0;
     const char *value = NULL;
-
-    ret = JS_CFG_readConfig( g_sConfigPath, &g_pEnvList );
-    if( ret != 0 )
-    {
-        fprintf( stderr, "fail to open config file(%s)\n", g_sConfigPath );
-        exit(0);
-    }
 
     value = JS_CFG_getValue( g_pEnvList, "LOG_LEVEL" );
     if( value ) g_nLogLevel = atoi( value );
@@ -270,14 +265,22 @@ int initServer()
     JS_SSL_setClientCACert( g_pSSLCTX, &binSSLCA );
 
 
-    value = JS_CFG_getValue( g_pEnvList, "DB_PATH" );
-    if( value == NULL )
+    if( g_dbPath == NULL && g_nConfigDB == 0 )
     {
-        fprintf( stderr, "You have to set 'DB_PATH'\n" );
-        exit(0);
-    }
+        value = JS_CFG_getValue( g_pEnvList, "DB_PATH" );
+        if( value == NULL )
+        {
+            fprintf( stderr, "You have to set 'DB_PATH'\n" );
+            exit(0);
+        }
 
-    g_dbPath = JS_strdup( value );
+        g_dbPath = JS_strdup( value );
+        if( JS_UTIL_isFileExist( g_dbPath ) == 0 )
+        {
+            fprintf( stderr, "The data file is no exist[%s]\n", g_dbPath );
+            exit(0);
+        }
+    }
 
     value = JS_CFG_getValue( g_pEnvList, "REG_PORT" );
     if( value ) g_nPort = atoi( value );
@@ -300,12 +303,15 @@ void printUsage()
     printf( "[Options]\n" );
     printf( "-v         : Verbose on(%d)\n", g_nVerbose );
     printf( "-c config : set config file(%s)\n", g_sConfigPath );
+    printf( "-d dbfile  : Use DB config(%d)\n", g_nConfigDB );
     printf( "-h         : Print this message\n" );
 }
 
 int main( int argc, char *argv[] )
 {
+    int ret = 0;
     int nOpt = 0;
+    sqlite3* db = NULL;
 
     sprintf( g_sConfigPath, "%s", "../ca_reg_srv.cfg" );
 
@@ -323,10 +329,59 @@ int main( int argc, char *argv[] )
         case 'c':
             sprintf( g_sConfigPath, "%s", optarg );
             break;
+
+        case 'd' :
+            g_dbPath = JS_strdup( optarg );
+            g_nConfigDB = 1;
+            break;
         }
     }
 
-    initServer();
+    if( g_nConfigDB == 1 )
+    {
+        JDB_ConfigList *pConfigList = NULL;
+
+        if( JS_UTIL_isFileExist( g_dbPath ) == 0 )
+        {
+            fprintf( stderr, "The data file is no exist[%s]\n", g_dbPath );
+            exit(0);
+        }
+
+        db = JS_DB_open( g_dbPath );
+        if( db == NULL )
+        {
+            fprintf( stderr, "fail to open db file(%s)\n", g_dbPath );
+            exit(0);
+        }
+
+        ret = JS_DB_getConfigListByKind( db, JS_GEN_KIND_REG_SRV, &pConfigList );
+
+        ret = JS_CFG_readConfigFromDB( pConfigList, &g_pEnvList );
+        if( ret != 0 )
+        {
+            fprintf( stderr, "fail to open config file(%s)\n", g_sConfigPath );
+            exit(0);
+        }
+
+
+        if( pConfigList ) JS_DB_resetConfigList( &pConfigList );
+    }
+    else
+    {
+        ret = JS_CFG_readConfig( g_sConfigPath, &g_pEnvList );
+        if( ret != 0 )
+        {
+            fprintf( stderr, "fail to open config file(%s)\n", g_sConfigPath );
+            exit(0);
+        }
+    }
+
+    initServer( db );
+
+    if( g_nConfigDB == 1 )
+    {
+        if( db ) JS_DB_close( db );
+    }
 
     JS_THD_logInit( "./log", "reg", 2 );
     JS_THD_registerService( "JS_REG", NULL, g_nPort, 4, NULL, REG_Service );
