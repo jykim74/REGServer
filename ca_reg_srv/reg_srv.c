@@ -54,7 +54,7 @@ int REG_Service( JThreadInfo *pThInfo )
     sqlite3* db = JS_DB_open( g_dbPath );
     if( db == NULL )
     {
-        fprintf( stderr, "fail to open db file(%s)\n", g_dbPath );
+        LE( "fail to open db file(%s)", g_dbPath );
         ret = -1;
         goto end;
     }
@@ -62,12 +62,11 @@ int REG_Service( JThreadInfo *pThInfo )
     ret = JS_HTTP_recv( pThInfo->nSockFd, &pMethInfo, &pHeaderList, &pReq );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to receive message(%d)\n", ret );
+        LE( "fail to receive message(%d)", ret );
         goto end;
     }
 
-    JS_LOG_write( JS_LOG_LEVEL_VERBOSE, "RecvLen : %d", pReq ? strlen(pReq) : 0 );
-
+    LV( "RecvLen : %d", pReq ? strlen(pReq) : 0 );
 
     JS_HTTP_getMethodPath( pMethInfo, &nType, &pPath, &pParamList );
 
@@ -80,7 +79,7 @@ int REG_Service( JThreadInfo *pThInfo )
         ret = procReg( db, pReq, nType, pPath, &pRsp );
         if( ret != 0 )
         {
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail procReg(%d)", ret );
+            LE( "fail procReg(%d)", ret );
             pRspMethod = JS_HTTP_getStatusMsg( JS_HTTP_STATUS_INTERNAL_SERVER_ERROR );
             goto end;
         }
@@ -94,8 +93,7 @@ int REG_Service( JThreadInfo *pThInfo )
     ret = JS_HTTP_send( pThInfo->nSockFd, pRspMethod, pRspHeaderList, pRsp );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to send message(%d)\n", ret );
-        JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail to send message(%d)", ret );
+        LE( "fail to send message(%d)", ret );
         goto end;
     }
     /* send response body */
@@ -135,7 +133,7 @@ int REG_SSL_Service( JThreadInfo *pThInfo )
     sqlite3* db = JS_DB_open( g_dbPath );
     if( db == NULL )
     {
-        fprintf( stderr, "fail to open db file(%s)\n", g_dbPath );
+        LE( "fail to open db file(%s)", g_dbPath );
         ret = -1;
         goto end;
     }
@@ -143,14 +141,14 @@ int REG_SSL_Service( JThreadInfo *pThInfo )
     ret = JS_SSL_accept( g_pSSLCTX, pThInfo->nSockFd, &pSSL );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to accept SSL(%d)\n", ret );
+        LE( "fail to accept SSL(%d)", ret );
         goto end;
     }
 
     ret = JS_HTTPS_recv( pSSL, &pMethInfo, &pHeaderList, &pReq );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to receive message(%d)\n", ret );
+        LE( "fail to receive message(%d)", ret );
         goto end;
     }
 
@@ -178,7 +176,7 @@ int REG_SSL_Service( JThreadInfo *pThInfo )
     ret = JS_HTTPS_send( pSSL, pRspMethod, pRspHeaderList, pRsp );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to send message(%d)\n", ret );
+        LE( "fail to send message(%d)", ret );
         goto end;
     }
     /* send response body */
@@ -221,43 +219,43 @@ int initServer( sqlite3* db)
     value = JS_CFG_getValue( g_pEnvList, "SSL_CA_CERT_PATH" );
     if( value == NULL )
     {
-        fprintf( stderr, "You have to set 'SSL_CA_CERT_PATH'\n" );
-        exit(0);
+        LE( "You have to set 'SSL_CA_CERT_PATH'" );
+        return -1;
     }
 
     ret = JS_BIN_fileReadBER( value, &binSSLCA );
     if( ret <= 0 )
     {
-        fprintf( stderr, "fail to read ssl ca cert(%s)\n", value );
-        exit(0);
+        LE( "fail to read ssl ca cert(%s)\n", value );
+        return -1;
     }
 
     value = JS_CFG_getValue( g_pEnvList, "SSL_CERT_PATH" );
     if( value == NULL )
     {
-        fprintf( stderr, "You have to set 'SSL_CERT_PATH'\n" );
-        exit(0);
+        LE( "You have to set 'SSL_CERT_PATH'" );
+        return -1;
     }
 
     ret = JS_BIN_fileReadBER( value, &binSSLCert );
     if( ret <= 0 )
     {
-        fprintf( stderr, "fail to read ssl cert(%s)\n", value );
-        exit(0);
+        LE( "fail to read ssl cert(%s)", value );
+        return -1;
     }
 
     value = JS_CFG_getValue( g_pEnvList, "SSL_PRIKEY_PATH" );
     if( value == NULL )
     {
-        fprintf( stderr, "You have to set 'SSL_PRIKEY_PATH'\n" );
-        exit(0);
+        LE( "You have to set 'SSL_PRIKEY_PATH'" );
+        return -1;
     }
 
     ret = JS_BIN_fileReadBER( value, &binSSLPri );
     if( ret <= 0 )
     {
-        fprintf( stderr, "fail to read ssl private key(%s)\n", value );
-        exit(0);
+        LE( "fail to read ssl private key(%s)", value );
+        return -1;
     }
 
     JS_SSL_initServer( &g_pSSLCTX );
@@ -270,15 +268,15 @@ int initServer( sqlite3* db)
         value = JS_CFG_getValue( g_pEnvList, "DB_PATH" );
         if( value == NULL )
         {
-            fprintf( stderr, "You have to set 'DB_PATH'\n" );
-            exit(0);
+            LE( "You have to set 'DB_PATH'" );
+            return -1;
         }
 
         g_dbPath = JS_strdup( value );
         if( JS_UTIL_isFileExist( g_dbPath ) == 0 )
         {
-            fprintf( stderr, "The data file is no exist[%s]\n", g_dbPath );
-            exit(0);
+            LE( "The data file is no exist[%s]", g_dbPath );
+            return -1;
         }
     }
 
@@ -288,7 +286,7 @@ int initServer( sqlite3* db)
     value = JS_CFG_getValue( g_pEnvList, "REG_SSL_PORT" );
     if( value ) g_nSSLPort = atoi( value );
 
-    printf( "CA RegServer Init OK [Port:%d SSL:%d]\n", g_nPort, g_nSSLPort );
+    LI( "CA RegServer Init OK [Port:%d SSL:%d]", g_nPort, g_nSSLPort );
 
     JS_BIN_reset( &binSSLCA );
     JS_BIN_reset( &binSSLCert );
@@ -376,7 +374,12 @@ int main( int argc, char *argv[] )
         }
     }
 
-    initServer( db );
+    ret = initServer( db );
+    if( ret != 0 )
+    {
+        LE( "fail to initialize server: %d", ret );
+        exit( 0 );
+    }
 
     if( g_nConfigDB == 1 )
     {
