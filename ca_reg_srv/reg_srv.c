@@ -19,8 +19,8 @@ static char g_sConfigPath[1024];
 static char g_sBuildInfo[1024];
 
 SSL_CTX     *g_pSSLCTX = NULL;
-int     g_nPort = 9030;
-int     g_nSSLPort = 9130;
+int     g_nPort = JS_REG_PORT;
+int     g_nSSLPort = JS_REG_SSL_PORT;
 int     g_nLogLevel = JS_LOG_LEVEL_INFO;
 
 
