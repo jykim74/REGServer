@@ -375,6 +375,11 @@ int main( int argc, char *argv[] )
         }
 
         ret = JS_DB_getConfigListByKind( db, JS_GEN_KIND_REG_SRV, &pConfigList );
+        if( ret <= 0 )
+        {
+            fprintf( stderr, "There is no config data in database: %d\n", ret );
+            exit(0);
+        }
 
         ret = JS_CFG_readConfigFromDB( pConfigList, &g_pEnvList );
         if( ret != 0 )
