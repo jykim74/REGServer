@@ -138,7 +138,7 @@ int REG_SSL_Service( JThreadInfo *pThInfo )
         goto end;
     }
 
-    ret = JS_SSL_accept( g_pSSLCTX, pThInfo->nSockFd, &pSSL );
+    ret = JS_SSL_initAccept( g_pSSLCTX, pThInfo->nSockFd, &pSSL );
     if( ret != 0 )
     {
         LE( "fail to accept SSL(%d)", ret );
