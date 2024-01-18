@@ -21,7 +21,6 @@ static char g_sBuildInfo[1024];
 SSL_CTX     *g_pSSLCTX = NULL;
 int     g_nPort = JS_REG_PORT;
 int     g_nSSLPort = JS_REG_SSL_PORT;
-int     g_nLogLevel = JS_LOG_LEVEL_INFO;
 
 
 int g_nVerbose = 0;
@@ -202,9 +201,7 @@ int initServer( sqlite3* db)
     const char *value = NULL;
 
     value = JS_CFG_getValue( g_pEnvList, "LOG_LEVEL" );
-    if( value ) g_nLogLevel = atoi( value );
-
-    JS_LOG_setLevel( g_nLogLevel );
+    if( value ) JS_LOG_setLevel( atoi( value ));
 
     value = JS_CFG_getValue( g_pEnvList, "LOG_PATH" );
     if( value )
