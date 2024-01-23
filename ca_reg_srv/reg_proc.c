@@ -25,22 +25,22 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
 
     if( pReq == NULL ) return -1;
 
-//    nRefCode = JS_DB_getSeq( db, "TB_USER" );
     nRefCode = JS_DB_getLastVal( db, "TB_USER" );
     if( nRefCode < 0 )
     {
         ret = -1;
+        LE( "fail to get RefCode: %d", ret );
         goto end;
     }
 
     sprintf( sRefCode, "%d", nRefCode );
-    ret = JS_PKI_genRandom( 4, &binRand );
-    ret = JS_BIN_encodeHex( &binRand, &pRand );
+    JS_PKI_genRandom( 4, &binRand );
+    JS_BIN_encodeHex( &binRand, &pRand );
 
     ret = JS_JSON_decodeRegUserReq( pReq, &sRegUserReq );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to decode request[%d]\n", ret );
+        LE( "fail to decode request[%d]", ret );
         ret = -1;
         goto end;
     }
@@ -58,8 +58,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     ret = JS_DB_addUser( db, &sDBUser );
     if( ret != 0 )
     {
-        fprintf( stderr, "fail to add user record:%d\n", ret );
-        JS_LOG_write( JS_LOG_LEVEL_ERROR, "fail to add user record:%d", ret  );
+        LE( "fail to add user record:%d", ret  );
         ret = -1;
         goto end;
     }
@@ -104,8 +103,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         ret = JS_DB_getUserByName( db, sRevokeReq.pValue, &sDBUser );
         if( ret < 1 )
         {
-            fprintf( stderr, "There is no user[%s]\n", sRevokeReq.pValue );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no user[%s]", sRevokeReq.pValue );
+            LE( "There is no user[%s]", sRevokeReq.pValue );
             ret = -1;
             goto end;
         }
@@ -113,8 +111,7 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
         if( ret < 1 )
         {
-            fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sDBUser.pName );
+            LE( "There is no cert[%s]", sDBUser.pName );
             ret = -1;
             goto end;
         }
@@ -126,14 +123,14 @@ int certRevoke( sqlite3 *db, const char *pReq, char **ppRsp )
         ret = JS_DB_getCertBySerial( db, sRevokeReq.pValue, &sDBCert );
         if( ret < 1 )
         {
-            fprintf( stderr, "There is no cert[%s]\n", sRevokeReq.pValue );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sRevokeReq.pValue );
+            LE( "There is no cert[%s]", sRevokeReq.pValue );
             ret = -1;
             goto end;
         }
     }
     else
     {
+        LE( "Invalid target : %s", sRevokeReq.pTarget );
         ret = -1;
         goto end;
     }
@@ -182,8 +179,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         ret = JS_DB_getUserByName( db, sStatusReq.pValue, &sDBUser );
         if( ret < 1 )
         {
-            fprintf( stderr, "There is no user[%s]\n", sStatusReq.pValue );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no user[%s]", sStatusReq.pValue );
+            LE( "There is no user[%s]", sStatusReq.pValue );
             ret = -1;
             goto end;
         }
@@ -191,8 +187,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         ret = JS_DB_getLatestCertByUserNum( db, sDBUser.nNum, &sDBCert );
         if( ret < 1 )
         {
-            fprintf( stderr, "There is no cert[%s]\n", sDBUser.pName );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sDBUser.pName );
+            LE( "There is no cert[%s]", sDBUser.pName );
             ret = -1;
             goto end;
         }
@@ -204,8 +199,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
          ret = JS_DB_getCertBySerial( db, sStatusReq.pValue, &sDBCert );
          if( ret < 1 )
          {
-            fprintf( stderr, "There is no cert[%s]\n", sStatusReq.pValue );
-            JS_LOG_write( JS_LOG_LEVEL_ERROR, "There is no cert[%s]", sStatusReq.pValue );
+             LE( "There is no cert[%s]", sStatusReq.pValue );
             ret = -1;
             goto end;
          }
@@ -249,6 +243,11 @@ int procReg( sqlite3 *db, const char *pReq, int nType, const char *pPath, char *
         ret = certRevoke( db, pReq, ppRsp );
     else if( strcasecmp( pPath, "/certstatus" ) == 0 )
         ret = certStatus( db, pReq, ppRsp );
+    else
+    {
+        LE( "Invalid Path: %s", pPath );
+        ret = -1;
+    }
 
 
     return ret;
