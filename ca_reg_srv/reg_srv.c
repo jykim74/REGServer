@@ -75,6 +75,10 @@ int REG_Service( JThreadInfo *pThInfo )
     }
     else
     {
+        /* check Login start */
+        /* If login is success, go on next */
+        /* check Login end */
+
         ret = procReg( db, pReq, nType, pPath, &pRsp );
         if( ret != 0 )
         {
