@@ -7,6 +7,113 @@
 #include "js_json.h"
 #include "js_pki.h"
 
+int genToken( const char *pPassword, time_t tTime, char *pToken )
+{
+    int ret = 0;
+    BIN binSrc = {0,0};
+    BIN binKey = {0,0};
+    BIN binHMAC = {0,0};
+    char    *pHex = NULL;
+
+    JS_BIN_set( &binSrc, pPassword, strlen( pPassword));
+    JS_BIN_append( &binSrc, &tTime, sizeof(tTime));
+    JS_BIN_set( &binKey, "1234567890123456", 16 );
+
+    ret = JS_PKI_genHMAC( "SHA1", &binSrc, &binKey, &binHMAC );
+    if( ret != 0 )
+    {
+        goto end;
+    }
+
+    JS_BIN_encodeHex( &binHMAC, &pHex );
+
+end :
+    JS_BIN_reset( &binSrc );
+    JS_BIN_reset( &binKey );
+    JS_BIN_reset( &binHMAC );
+
+    if( pHex )
+    {
+        sprintf( pToken, pHex );
+        JS_free( pHex );
+    }
+
+    return ret;
+}
+
+int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
+{
+    int ret = 0;
+
+    JDB_Admin sAdmin;
+    JDB_Auth sAuth;
+    JRegRsp     sRegRsp;
+    char *pUserName = NULL;
+    char *pPassword = NULL;
+    time_t  now_t = 0;
+
+    char        sToken[128];
+
+    memset( &sAdmin, 0x00, sizeof(sAdmin));
+    memset( &sAuth, 0x00, sizeof(sAuth));
+    memset( &sRegRsp, 0x00, sizeof(sRegRsp));
+
+    ret = JS_JSON_decodeRegLoginReq( pReq, &pUserName, &pPassword );
+    if( ret != 0 )
+    {
+        LE( "fail to decode request: %d", ret );
+        goto end;
+    }
+
+    ret = JS_DB_getAdminByName( db, pUserName, &sAdmin );
+    if( ret < 1 )
+    {
+        ret = -2;
+        LE( "UserName is invalid: %s", pUserName );
+        goto end;
+    }
+
+    if( strcasecmp( pPassword, sAdmin.pPassword ) != 0 )
+    {
+        ret = -3;
+        LE( "Password is wrong" );
+        goto end;
+    }
+
+    now_t = time(NULL);
+    ret = genToken( pPassword, now_t, sToken );
+    if( ret != 0 )
+    {
+        LE( "fail to generate token: %d", ret );
+        ret = -4;
+        goto end;
+    }
+
+    JS_DB_setAuth( &sAuth, sToken, pUserName, now_t, 18400 );
+    JS_DB_delAuthByName( db, pUserName );
+    ret = JS_DB_addAuth( db, &sAuth );
+    if( ret != 0 )
+    {
+        LE( "fail to add auth: %d", ret );
+        ret = -5;
+        goto end;
+    }
+
+    JS_JSON_setRegRsp( &sRegRsp, "0000", "OK" );
+    JS_JSON_encodeRegRsp( &sRegRsp, ppRsp );
+
+    JS_addAudit( db, JS_GEN_KIND_REG_SRV, JS_GEN_OP_LOGIN, NULL );
+
+end :
+    JS_DB_resetAdmin( &sAdmin );
+    JS_DB_resetAuth( &sAuth );
+    JS_JSON_resetRegRsp( &sRegRsp );
+    if( pUserName ) JS_free( pUserName );
+    if( pPassword ) JS_free( pPassword );
+
+    return ret;
+}
+
 int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
 {
     int     ret = 0;
@@ -237,12 +344,14 @@ int procReg( sqlite3 *db, const char *pReq, int nType, const char *pPath, char *
 {
     int ret = 0;
 
-    if( strcasecmp( pPath, "/user" ) == 0 )
+    if( strcasecmp( pPath, JS_REG_PATH_USER ) == 0 )
         ret = regUser( db, pReq, ppRsp );
-    else if( strcasecmp( pPath, "/certrevoke" ) == 0 )
+    else if( strcasecmp( pPath, JS_REG_PATH_CERT_REVOKE ) == 0 )
         ret = certRevoke( db, pReq, ppRsp );
-    else if( strcasecmp( pPath, "/certstatus" ) == 0 )
+    else if( strcasecmp( pPath, JS_REG_PATH_CERT_STATUS ) == 0 )
         ret = certStatus( db, pReq, ppRsp );
+    else if( strcasecmp( pPath, JS_REG_PATH_ADMIN_LOGIN ) == 0 )
+        ret = adminLogin( db, pReq, ppRsp );
     else
     {
         LE( "Invalid Path: %s", pPath );

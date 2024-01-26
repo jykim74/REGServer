@@ -10,6 +10,7 @@
 #include "js_process.h"
 #include "js_db.h"
 #include "js_cfg.h"
+#include "js_json.h"
 
 #include "reg_srv.h"
 
@@ -32,6 +33,29 @@ const char *getBuildInfo()
              JS_REG_SRV_VERSION, __DATE__, __TIME__ );
 
     return g_sBuildInfo;
+}
+
+int isLogin( sqlite3* db, JNameValList *pHeaderList )
+{
+    JDB_Auth sAuth;
+    const char *pToken = NULL;
+    if( pHeaderList == NULL ) return 0;
+
+    memset( &sAuth, 0x00, sizeof(sAuth));
+
+    pToken = JS_UTIL_valueFromNameValList( pHeaderList, "Token" );
+    if( pToken == NULL ) return 0;
+
+    JS_DB_getAuth( db, pToken, &sAuth );
+
+    if( sAuth.pToken && strcasecmp( pToken, sAuth.pToken ) == 0 )
+    {
+        JS_DB_resetAuth( &sAuth );
+        return 1;
+    }
+
+    JS_DB_resetAuth( &sAuth );
+    return 0;
 }
 
 int REG_Service( JThreadInfo *pThInfo )
@@ -76,7 +100,14 @@ int REG_Service( JThreadInfo *pThInfo )
     else
     {
         /* check Login start */
-        /* If login is success, go on next */
+        if( strcasecmp( pPath, JS_REG_PATH_ADMIN_LOGIN ) != 0 )
+        {
+            if( isLogin( db, pHeaderList ) == 0 )
+            {
+                LE( "not logined" );
+                goto end;
+            }
+        }
         /* check Login end */
 
         ret = procReg( db, pReq, nType, pPath, &pRsp );
@@ -163,6 +194,17 @@ int REG_SSL_Service( JThreadInfo *pThInfo )
     }
     else
     {
+        /* check Login start */
+        if( strcasecmp( pPath, JS_REG_PATH_ADMIN_LOGIN ) != 0 )
+        {
+            if( isLogin( db, pHeaderList ) == 0 )
+            {
+                LE( "not logined" );
+                goto end;
+            }
+        }
+        /* check Login end */
+
         ret = procReg( db, pReq, nType, pPath, &pRsp );
         if( ret != 0 )
         {
