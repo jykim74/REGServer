@@ -47,33 +47,34 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
 
     JDB_Admin sAdmin;
     JDB_Auth sAuth;
-    JRegRsp     sRegRsp;
-    char *pUserName = NULL;
-    char *pPassword = NULL;
+    JRegAdminLoginReq       sAdminLoginReq;
+    JRegAdminLoginRsp       sAdminLoginRsp;
+
     time_t  now_t = 0;
 
     char        sToken[128];
 
     memset( &sAdmin, 0x00, sizeof(sAdmin));
     memset( &sAuth, 0x00, sizeof(sAuth));
-    memset( &sRegRsp, 0x00, sizeof(sRegRsp));
+    memset( &sAdminLoginReq, 0x00, sizeof(sAdminLoginReq));
+    memset( &sAdminLoginRsp, 0x00, sizeof(sAdminLoginRsp));
 
-    ret = JS_JSON_decodeRegLoginReq( pReq, &pUserName, &pPassword );
+    ret = JS_JSON_decodeRegAdminLoginReq( pReq, &sAdminLoginReq );
     if( ret != 0 )
     {
         LE( "fail to decode request: %d", ret );
         goto end;
     }
 
-    ret = JS_DB_getAdminByName( db, pUserName, &sAdmin );
+    ret = JS_DB_getAdminByName( db, sAdminLoginReq.pUserName, &sAdmin );
     if( ret < 1 )
     {
         ret = -2;
-        LE( "UserName is invalid: %s", pUserName );
+        LE( "UserName is invalid: %s", sAdminLoginReq.pUserName );
         goto end;
     }
 
-    if( strcasecmp( pPassword, sAdmin.pPassword ) != 0 )
+    if( strcasecmp( sAdminLoginReq.pPassword, sAdmin.pPassword ) != 0 )
     {
         ret = -3;
         LE( "Password is wrong" );
@@ -81,7 +82,7 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
     }
 
     now_t = time(NULL);
-    ret = genToken( pPassword, now_t, sToken );
+    ret = genToken( sAdminLoginReq.pPassword, now_t, sToken );
     if( ret != 0 )
     {
         LE( "fail to generate token: %d", ret );
@@ -89,8 +90,8 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
         goto end;
     }
 
-    JS_DB_setAuth( &sAuth, sToken, pUserName, now_t, 18400 );
-    JS_DB_delAuthByName( db, pUserName );
+    JS_DB_setAuth( &sAuth, sToken, sAdminLoginReq.pUserName, now_t, 18400 );
+    JS_DB_delAuthByName( db, sAdminLoginReq.pUserName );
     ret = JS_DB_addAuth( db, &sAuth );
     if( ret != 0 )
     {
@@ -99,17 +100,16 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
         goto end;
     }
 
-    JS_JSON_setRegRsp( &sRegRsp, "0000", "OK" );
-    JS_JSON_encodeRegRsp( &sRegRsp, ppRsp );
+    JS_JSON_setRegAdminLoginRsp( &sAdminLoginRsp, "0000", "OK", sToken );
+    JS_JSON_encodeRegAdminLoginRsp( &sAdminLoginRsp, ppRsp );
 
     JS_addAudit( db, JS_GEN_KIND_REG_SRV, JS_GEN_OP_LOGIN, NULL );
 
 end :
     JS_DB_resetAdmin( &sAdmin );
     JS_DB_resetAuth( &sAuth );
-    JS_JSON_resetRegRsp( &sRegRsp );
-    if( pUserName ) JS_free( pUserName );
-    if( pPassword ) JS_free( pPassword );
+    JS_JSON_resetRegAdminLoginReq( &sAdminLoginReq );
+    JS_JSON_resetRegAdminLoginRsp( &sAdminLoginRsp );
 
     return ret;
 }
