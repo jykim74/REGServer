@@ -51,6 +51,8 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
     JRegAdminLoginRsp       sAdminLoginRsp;
 
     time_t  now_t = 0;
+    BIN binGenMAC = {0,0};
+    BIN binMAC = {0,0};
 
     char        sToken[128];
 
@@ -74,7 +76,9 @@ int adminLogin( sqlite3 *db, const char *pReq, char **ppRsp )
         goto end;
     }
 
-    if( strcasecmp( sAdminLoginReq.pPassword, sAdmin.pPassword ) != 0 )
+    JS_GEN_genPasswdHMAC( sAdminLoginReq.pPassword, &binGenMAC );
+    JS_BIN_decodeHex( sAdmin.pPassword, &binMAC );
+    if( JS_BIN_cmp( &binGenMAC, &binMAC ) != 0 )
     {
         ret = -3;
         LE( "Password is wrong" );
@@ -110,6 +114,9 @@ end :
     JS_DB_resetAuth( &sAuth );
     JS_JSON_resetRegAdminLoginReq( &sAdminLoginReq );
     JS_JSON_resetRegAdminLoginRsp( &sAdminLoginRsp );
+
+    JS_BIN_reset( &binGenMAC );
+    JS_BIN_reset( &binMAC );
 
     return ret;
 }
