@@ -6,6 +6,7 @@
 #include "js_http.h"
 #include "js_json.h"
 #include "js_pki.h"
+#include "js_json_msg.h"
 
 int genToken( const char *pPassword, time_t tTime, char *pToken )
 {

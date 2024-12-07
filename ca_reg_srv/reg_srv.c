@@ -11,6 +11,8 @@
 #include "js_db.h"
 #include "js_cfg.h"
 #include "js_json.h"
+#include "js_db_data.h"
+#include "js_json_msg.h"
 
 #include "reg_srv.h"
 
