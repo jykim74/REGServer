@@ -128,10 +128,10 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
     JRegUserReq     sRegUserReq;
     JRegUserRsp     sRegUserRsp;
     JDB_User        sDBUser;
-    int             nRefCode = -1;
-    BIN             binRand = {0,0};
-    char            *pRand = NULL;
-    char            sRefCode[64];
+    int             nRefNum = -1;
+    BIN             binAuth = {0,0};
+    char            *pAuth = NULL;
+    char            sRefNum[64];
     time_t          now_t = time(NULL);
 
     memset( &sRegUserReq, 0x00, sizeof(sRegUserReq));
@@ -140,17 +140,19 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
 
     if( pReq == NULL ) return -1;
 
-    nRefCode = JS_DB_getLastVal( db, "TB_USER" );
-    if( nRefCode < 0 )
+    nRefNum = JS_DB_getLastVal( db, "TB_USER" );
+    if( nRefNum < 0 )
     {
         ret = -1;
-        LE( "fail to get RefCode: %d", ret );
+        LE( "fail to get RefNum: %d", ret );
         goto end;
     }
 
-    sprintf( sRefCode, "%d", nRefCode );
-    JS_PKI_genRandom( 4, &binRand );
-    JS_BIN_encodeHex( &binRand, &pRand );
+    nRefNum++;
+
+    sprintf( sRefNum, "%d", nRefNum );
+    JS_PKI_genRandom( 4, &binAuth );
+    JS_BIN_encodeHex( &binAuth, &pAuth );
 
     ret = JS_JSON_decodeRegUserReq( pReq, &sRegUserReq );
     if( ret != 0 )
@@ -167,8 +169,8 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
                    sRegUserReq.pSSN,
                    sRegUserReq.pEmail,
                    1,
-                   sRefCode,
-                   pRand );
+                   sRefNum,
+                   pAuth );
 
     ret = JS_DB_addUser( db, &sDBUser );
     if( ret != 0 )
@@ -178,7 +180,7 @@ int regUser( sqlite3 *db, const char *pReq, char **ppRsp )
         goto end;
     }
 
-    JS_JSON_setRegUserRsp( &sRegUserRsp, "0000", "OK", sRefCode, pRand );
+    JS_JSON_setRegUserRsp( &sRegUserRsp, "0000", "OK", sRefNum, pAuth );
     JS_JSON_encodeRegUserRsp( &sRegUserRsp, ppRsp );
 
     JS_addAudit( db, JS_GEN_KIND_REG_SRV, JS_GEN_OP_REG_USER, NULL );
@@ -188,8 +190,8 @@ end :
     JS_JSON_resetRegUserReq( &sRegUserReq );
     JS_JSON_resetRegUserRsp( &sRegUserRsp );
     JS_DB_resetUser( &sDBUser );
-    if( pRand ) JS_free( pRand );
-    JS_BIN_reset( &binRand );
+    if( pAuth ) JS_free( pAuth );
+    JS_BIN_reset( &binAuth );
 
     return ret;
 }
