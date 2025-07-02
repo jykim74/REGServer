@@ -333,7 +333,7 @@ int certStatus( sqlite3 *db, const char *pReq, char **ppRsp )
         char sRevokeDate[128];
 
         sprintf( sReason, "%d", sDBRevoked.nReason );
-        sprintf( sRevokeDate, "%d", sDBRevoked.nRevokedDate );
+        sprintf( sRevokeDate, "%d", sDBRevoked.tRevokedDate );
 
         JS_JSON_setRegCertStatusRsp( &sStatusRsp, "0000", "OK", "Revoked", sReason, sRevokeDate, sDBCert.pSerial );
     }
